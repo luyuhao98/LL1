@@ -27,6 +27,13 @@ class item
         set<string> follow; //follow set
         /*产生式集合,每个产生式是string的集合*/
         vector<vector<string>> prods;
+        bool rfirst;
+        bool rfollow;
+        item()
+        {
+                rfirst = false;
+                rfollow = false;
+        }
 };
 
 /*原非终结符集合*/
@@ -225,30 +232,30 @@ void outProds(map<string, item> &N)
         }
 }
 
-
-void outset(){
+void outset()
+{
         map<string, item>::iterator iter = Nmodified.begin();
         while (iter != Nmodified.end())
-        {       
+        {
                 /*输出First集*/
-                cout<<"First set of < "<<iter->first<<" > : { ";
+                cout << "First set of < " << iter->first << " > : { ";
                 set<string>::iterator it = iter->second.first.begin();
                 while (it != iter->second.first.end())
                 {
-                        cout<<*it<<" ";
+                        cout << *it << " ";
                         it++;
                 }
-                cout<<"}"<<endl;
+                cout << "}" << endl;
 
                 /*输出FOLLOW集*/
-                cout<<"Follow set of < "<<iter->first<<" > : { ";
+                cout << "Follow set of < " << iter->first << " > : { ";
                 it = iter->second.follow.begin();
                 while (it != iter->second.follow.end())
                 {
-                        cout<<*it<<" ";
+                        cout << *it << " ";
                         it++;
                 }
-                cout<<"}"<<endl;
+                cout << "}" << endl;
 
                 iter++;
         }
@@ -282,11 +289,11 @@ void elimimateleftrecursion()
                         if (!iter->first.compare((*it)[0]))
                         {
                                 needEliminate = 1;
-                                recurse.push_back(1);//A->Aa
+                                recurse.push_back(1); //A->Aa
                         }
                         else
                         {
-                                recurse.push_back(0);//A->b
+                                recurse.push_back(0); //A->b
                         }
                         it++;
                 }
@@ -313,7 +320,7 @@ void elimimateleftrecursion()
                                 {
 
                                         vector<string> prod(iter->second.prods[i]);
-                                        if(prod.size()==1&&!prod[0].compare("?"))//如果右部产生式为空则清空？
+                                        if (prod.size() == 1 && !prod[0].compare("?")) //如果右部产生式为空则清空？
                                                 prod.clear();
                                         prod.push_back(left2);
                                         right1.prods.push_back(prod);
@@ -333,7 +340,7 @@ void elimimateleftrecursion()
         }
 }
 
-set<string> findfirst(string left,bool fast = false) //如果fast为真则直接返回已经求好的first集
+set<string> findfirst(string left) //如果fast为真则直接返回已经求好的first集
 {
         //return set
         set<string> myset;
@@ -345,7 +352,8 @@ set<string> findfirst(string left,bool fast = false) //如果fast为真则直接
         }
         else
         {
-                if(fast){//快速返回first集
+                if (Nmodified[left].rfirst)
+                { //快速返回first集
                         return Nmodified[left].first;
                 }
                 //非终结符
@@ -363,7 +371,7 @@ set<string> findfirst(string left,bool fast = false) //如果fast为真则直接
                                 myset.insert(get.begin(), get.end());
 
                                 //如果含有空（？）并且不为最后一个，那么？需要被排除，否则结束循环。
-                                if (!(get.count("?") && it2 != it1->end()-1))
+                                if (!(get.count("?") && it2 != it1->end() - 1))
                                         break;
                                 myset.erase("?");
                                 it2++;
@@ -379,54 +387,62 @@ void fisrt()
         while (iter != Nmodified.end())
         {
                 set<string> get = findfirst(iter->first);
-                iter->second.first.insert(get.begin(),get.end());
+                iter->second.first.insert(get.begin(), get.end());
+                iter->second.rfirst = true;
                 iter++;
         }
 }
 
-set<string> findfollow(string n,bool fast=false)//fast为true则直接返回求号的follow集合
+set<string> findfollow(string n) //fast为true则直接返回求号的follow集合
 {
 
-        if(fast){
+        if (Nmodified[n].rfollow)
+        {
                 return Nmodified[n].follow;
         }
         //return set
         set<string> myset;
 
         map<string, item>::iterator iter = Nmodified.begin();
-        while(iter!=Nmodified.end()){
+        while (iter != Nmodified.end())
+        {
                 vector<vector<string>>::iterator it1 = iter->second.prods.begin();
-                while(it1!=iter->second.prods.end()){
+                while (it1 != iter->second.prods.end())
+                {
                         vector<string>::iterator it2 = it1->begin();
                         bool isfind = 0;
-                        while(it2!=it1->end()){//it2是产生式子中的每一个符号
-                                if(!isfind&&!n.compare(*it2)){//第一次找到非终结符号n
-                                        isfind=1;
-                                        if(it2==it1->end()-1&&n.compare(iter->first)){//如果n是最后一个字符，且不为left
-                                                set<string> get =findfollow(iter->first); 
-                                                myset.insert(get.begin(),get.end());
+                        while (it2 != it1->end())
+                        { //it2是产生式子中的每一个符号
+                                if (!isfind && !n.compare(*it2))
+                                { //第一次找到非终结符号n
+                                        isfind = 1;
+                                        if (it2 == it1->end() - 1 && n.compare(iter->first))
+                                        { //如果n是最后一个字符，且不为left
+                                                set<string> get = findfollow(iter->first);
+                                                myset.insert(get.begin(), get.end());
                                         }
-                                        
                                 }
                                 //else：互斥关系：上面找到后直接跳到下一个，不判端isfind
                                 else if (isfind)
                                 {
-                                        set<string> get = findfirst(*it2,true);
-                                        myset.insert(get.begin(),get.end());
-                                        
+                                        set<string> get = findfirst(*it2);
+                                        myset.insert(get.begin(), get.end());
+
                                         //如果不含空，则直接退出循环
                                         if (!(get.count("?")))
                                                 break;
                                         //如果含空且为最后一个，且n不为left,即A->αBβ中，A!=B，?∈first(β),那么follow（A）插入follow（B）中
-                                        else if(it2 == it1->end()-1){
+                                        else if (it2 == it1->end() - 1)
+                                        {
                                                 myset.erase("?");
-                                                set<string> get =findfollow(iter->first); 
-                                                myset.insert(get.begin(),get.end());
+                                                set<string> get = findfollow(iter->first);
+                                                myset.insert(get.begin(), get.end());
                                         }
                                         //如果含有空且不为最后一个,或者含有空为最后一个但是n为left,那么去掉空后，继续循环。
-                                        else{
+                                        else
+                                        {
                                                 myset.erase("?");
-                                        }     
+                                        }
                                 }
                                 it2++;
                         }
@@ -434,19 +450,20 @@ set<string> findfollow(string n,bool fast=false)//fast为true则直接返回求�
                 }
                 iter++;
         }
+
         return myset;
 }
 void follow()
 {
         map<string, item>::iterator iter = Nmodified.begin();
-        iter->second.follow.insert("$");//第一个插$
+        iter->second.follow.insert("$"); //第一个插$
         while (iter != Nmodified.end())
         {
                 set<string> get = findfollow(iter->first);
-                iter->second.follow.insert(get.begin(),get.end());
+                iter->second.follow.insert(get.begin(), get.end());
+                iter->second.rfollow = true;
                 iter++;
         }
-
 }
 int main()
 {
