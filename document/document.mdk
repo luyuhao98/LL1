@@ -1,5 +1,5 @@
 Title         : LL(1)语法分析程序
-Author        : 卢昱昊
+Author        :4班   卢昱昊   2016210537
 Logo          : True
 Package : [UTF8]ctex
 
@@ -20,17 +20,191 @@ Package : [UTF8]ctex
 ## LL(1)文法定义
 如果一个文法的预测分析表M不含多重定义的表项，则称该文法为LL(1)文法。
 ## 非递归预测分析
-非递归预测分析模型
+非递归预测分析模型[如图][ycfx]
+~ Figure { #ycfx; caption:"预测分析模型"; page-align:top}
+![ycfx]
+~ 
+[ycfx]: ycfx.jpeg "ycfx"
+输入缓冲区
+ ~存放被分析的输入符号串，串尾符号\$是符号串结束标志
+分析栈
+ ~存放一系列文法符号，符号\$标识栈底。分析开始时，先将\$入栈，以标识栈底，然后再将文法的开始符号入栈
+分析表
+ ~这是一个二维表M[A,a],其中A是非终结符号，a是终结符号或是\$,根据给定的A和a，可在分析表M中找到相应的分析动作指示。
+输出流
+ ~分析过程中所采用的产生式序列。
+预测分析控制程序
+ ~该程序是预测分析程序的核心部分，是由分析表驱动的，它总是根据栈顶符号X和当前输入符号a来决定分析程序应采取的动作。
+
+## 消除左递归
+为了避免回溯，文法不能含有左递归。为了使形如`S->AB`（AB皆为非终结符）的文法够存在，此LL(1)文法分析器仅支持消除显式左递归。算法如下：
+```
+    原文法：
+      
+    A->Aα1|Aα2|β1|β2
+
+    等价文法:
+
+    A->β1A'|β2A'
+    A'->α1A'|α2A'|ε
+```
+## First集
+###定义
+First（α）是α可以推导出的开头终结符号的集合，即:\
+```
+First(α)={a|α=*>...,a∈VT}
+```
+此外若α=*>ε，则ε∈First(α)。
+
+###构造
+
+>连续使用下面的规则，直到每个集合都不再增大为止：
+>
+> * 若X∈VT，则Fisrt（X）=\{X\}
+> * 若X∈VN，且又产生式X->a...,其中a∈VT，则把a加入到First（X）中\
+>   若有产生式X->ε,则ε也加入到First（X）中
+> * 若有产生式X->Y...,且Y∈VN，则把First（Y）中的所有非ε元素加入到First（X）中。\
+>   若有产生式X->Y1Y2...Yk,如果对某个i，First（Y1），First（Y2），...,First(Yi-1)都含有ε，即Y1Y2...Yi-1=*>ε，则把First（Yi）中的所有非ε元素加入到First（X）中。\
+>   若所有First（Yi）均含有ε，其中i=1,2,3...,k，则把ε加入到First（X）中。
+
+##　Follow集
+###定义
+  假定Ｓ是文法Ｇ的开始符号，对于文法Ｇ的所有终结符号Ａ，Follow(A)是该文法的所有句型中紧跟在Ａ之后出现的终结符号或\$组成的集合，即:\
+```
+Follow(A)={a|S=*>...Aa...,a∈VT}
+```
+特别地，若Ｓ=\*>Ａ，则规定\$∈Follow(A),\$为输入符号串的右结尾标志符。
+
+###构造
+>连续使用一下规则，直到每个集合不再增大为止:
+>
+> * 对文法开始符号Ｓ，置\$与Follow(S)中。
+> * 若有产生式A->αBβ,则把First(β)中的所有非ε元素加入到Follow(B)中
+> * 若有产生式A->αB，或有产生式A->αBβ，但是ε∈First(β)，则把Follow(A)中的所有元素加入到Follow(B)中。
+
+
+## 算法4.2: 预测分析表的构造 { #algo4.2}
+
+>```
+>输入：文法G
+>输出：文法G的预测分析表M
+>方法：
+>for(文法G的每一个产生式A->α){
+>    for(每个终结符号a∈First(α)) 把A->α放入表项M[A,a]中；
+>    if(ε∈First(α)){
+>    for(每一个b∈Follow(A)) 把A->α放入表项M[A,b]中；
+>    }
+>}
+>for(所有无定义的表项M[A,a]) 标上错误标志。
+>``` 
+
+## 算法4.1： 非递归预测分析方法 { #algo4.1}
+>```
+>输入：输入符号串w,文法G的一张预测分析表M。
+>输出：若w∈L(G),则输出w的最左推导，否则报告错误。
+>方法：
+>首先，初始化，将\$压入栈底，将文法开始符号S压入栈顶;将w\$放入输入缓冲区中，并置向前指针ip，指向w$的第一个符号。
+>然后，根据分析表M对w作自顶向下的分析，过程如下：
+>do{
+>    令X是栈顶文法符号，a是ip所指向的输入符号；
+>    if(X是终结符号或$)
+>        if(X==a){从栈顶弹出X；ip前移一个位置;};
+>        else error();
+>    else
+>        if(M[X,a]=X->Y1Y2...Yk){
+>            从栈顶弹出X;
+>            依次把Yk,Yk-1,...Y2,Y1压入栈;
+>            输出产生式X->Y1Y2...Yk;
+>        };
+>        else error();
+>}while(X!=$)
+>```
+
+## LL(1)错误处理 { #error}
+首先，构造synch: 对于非终结符号A，终结符号b∈Follow(A),如果表项M[A,b]为空，则填入synch。然后：
+
+1. 如果分析栈顶符号是终结符，但与输入栈不匹配，则分析栈弹出栈顶终结符
+2. 如果分析栈顶为非终结符，当前输入栈顶符号为a，预测分析控制程序在分析表中查表M[A,a]
+  * 若它为空白，则输入栈弹出栈顶符号
+  * 若它为synch，则分析栈弹出栈顶符号。
+
+[^f1]:为了使形如`S->AB`（AB皆为非终结符）的文法够存在，此LL(1)文法分析器仅支持消除显式左递归
 # 任务描述
+## 题目要求
+>题目：语法分析程序的设计与实现。\
+>实验内容：编写语法分析程序，实现对算术表达式的语法分析。要求所分析算数表达式由如下的文法产生。\
+>```
+>E->E+T | E-T | T
+>T->T*F | T/F | F
+>F->(E) | num
+>```
+>实验要求：在对输入的算术表达式进行分析的过程中，依次输出所采用的产生式。\
+>方法2：编写LL(1)语法分析程序，要求如下:\
+>(1)编程实现算法4.2，为给定文法自动构造预测分析表。\
+>(2)编程实现算法4.1，构造LL(1)预测分析程序。\
+
+## 题目分析 { #tmfx }
+
+1. **可自动性** : 作为语法分析程序，要有强大的自动构造能力，要能够：
+  * 自动消除左递归(显式[^f1]）
+  * 自动构造first集合及follow集
+  * 自动生成预测分析表（包括synch）
+  * 自动分析给定的输入串，给出分析过程
+  * 自动进行错误处理
+
+2. **可泛化性** : 作为语法分析程序，要能够应对足够复杂的情况,因此:
+  * 需要在词法分析前，先进行一步语法分析。
+  * 不仅能够处理给定的文法，还**能够处理所有不含有隐式左递归的上下文无关文法**
+
 # 实现情况
+
 ## 功能实现
+实现[#tmfx]提到的所有条目，增添了许多特色：
+
+1. **能够处理所有不含隐式左递归的上下文无关文法**
+2. 用户只需要将文法按行写入Grammar.txt文件，运行LL1(Linux)\LL1.exe即可自动构造预测分析表。
+3. 在读入Grammar文法后，会先进行一步基本的词法分析，遵循以下策略：
+ * 分析产生式左侧非终结符，自动将*第一条产生式左部的非终结符*视为文法**开始符号**
+ * 产生式箭头用`->`表示
+ * 遇到分界符`|`则结束本产生式，开启下一条产生式。
+ * 终结符为小写字母(a-z),数字(0-9),下划线(_)所构成的**字符串**，如：`num`， `123`， `_a_b2`\
+   或除此之外的非大写字母非`？`非`|` *字符*，如： `+`，`/`,`&`,`=`等。
+ * 非终结符为单独的大写字母(A-Z)**字符**。
+ * 空用字符`?`表示。理由：相比之下`ε`不容易输入。
+ * 按行读取分析，跳过空白符号。
+ * 将分析结果存入合适的数据结构。
+ * 对于过程中所有的不规范格式，精准报错并退出程序。
+4. 词法分析后，执行消除显示左递归，输出修改后的文法
+5. 对于修改后的文法，求出各个非终结符的first集和follow集，输出。
+ * **采用了动态规划的方式，减少重复计算，提高了执行效率**。
+6. 根据所求出的first集follow集，利用[算法4.2][#algo4.2]构造预测分析。包括synch的填充。
+7. 要求用户在命令窗口中输入待分析串，也进行**词法分析**
+ * 不需要输入\$结尾，程序自动添加。
+ * 并不自动跳过空白符
+ * 以第3条提到的终结符格式分割以获取符号。
+ * 检测到大写字符则ERROR
+ * 判断所获得的*非大写符号*或*符号串*是否属于非终结符集合，如果不属于则Error
+ * 如果Error则要求用户重新输入
+8. 根据[算法4.1][#algo4.1]对分析串进行分析，逐步输出分析过程
+ * 分析前，分析栈压入`$`及文法开始符号，输入栈压入`$`
+ * 每一步输出当前分析栈(左侧为栈底)，输入缓冲区(右侧为栈底)以及\
+   输出(正确：产生式；错误：错误处理方式)。
+ * 根据[错误处理策略][#error],处理产生的错误，保证不会卡住。
+9. 分析栈输入栈一者为空则分析结束，二者均为空则分析成功，
 ## 特色
+
 ## 全局变量及函数
+
 # 程序及执行
+
 ## 文件结构
+
 ## 给定文法测试
+
 ## 推广测试
+
 ## 代码 
+
 # 总结
 
 ~ Figure { #fig-butterfly; caption:"A Monarch butterfly (use the `.wide` class for wide figure)."; page-align:top}
@@ -46,22 +220,6 @@ Our contributions are:
 * And some source code;
 * And references to Tex books [@Knuth:TeX;@Lamport:LaTeX;@Goo93;@Fberg04] and others [@Grandstrand].
 
-And suddenly first one and then another began to sing as they played,
-deep-throated singing of the dwarves in the deep places of their ancient
-homes; and this is like a fragment of their song, if it can be like their
-song without their music. \[...\] As they sang the hobbit felt the love
-of beautiful things made by hands and by cunning and by magic moving
-through him, a fierce and jealous love, the desire of the hearts of
-dwarves. Then something Tookish woke up inside him, and he wished to go
-and see the great mountains, and hear the pine-trees and the waterfalls,
-and explore the caves, and wear a sword instead of a walking-stick. He
-looked out of the window. The stars were out in a dark sky above the
-trees. He thought of the jewels of the dwarves shining in dark caverns.
-Suddenly in the wood beyond The Water a flame leapt up -- probably
-somebody lighting a wood-fire -- and he thought of plundering dragons
-settling on his quiet Hill and kindling it all to flames. He shuddered;
-and very quickly he was plain Mr. Baggins of Bag-End, Under-Hill, again.
-He got up trembling.
 
 
 # Content
