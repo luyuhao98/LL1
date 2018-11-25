@@ -228,7 +228,12 @@ void outProds(map<string, item> &N)
 
 void outset()
 {
-	cout<<left<<setw(5)<<""<<"|"<<setw(20)<<"  First"<<"|"<<setw(20)<<"  Follow"<<endl;
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+
+	cout<<setw(5)<<""<<"|"<<setw(20)<<"First"<<"|"<<setw(20)<<"Follow"<<endl;
 	for (int i = 0;i<47;i++){
 		cout<<"-";
 	}
@@ -237,7 +242,7 @@ void outset()
 	map<string, item>::iterator iter = Nmodified.begin();
         while (iter != Nmodified.end())
         {
-		cout<<setw(5)<<iter->first<<"|";
+		cout<<left<<setw(5)<<iter->first<<"|";
                 /*输出First集*/
 		string str;
                 set<string>::iterator it = iter->second.first.begin();
@@ -260,12 +265,12 @@ void outset()
                 }
 		cout<<setw(20)<<str<<endl;
                 iter++;
-        }	
+        }
 	for (int i = 0;i<47;i++){
 		cout<<"-";
 	}
 	cout<<endl;
-	
+
 }
 //输出终结符
 void outT()
@@ -504,8 +509,8 @@ void makeFAT()
                 //it1代表每一个产生式
                 while (it1 != iter->second.prods.end())
                 {
+			auto get = findfirst(it1->begin(), it1->end());
                         //get为每个产生式的first集合
-                        auto get = findfirst(it1->begin(), it1->end());
                         auto it2 = get.begin();
                         bool hasempty = false;
                         while (it2 != get.end())
@@ -636,10 +641,9 @@ int getinputstack()
         {
                 char in = input[i];
                 str.push_back(in);
-		//大写符号均为error
-		if(in>='A'&&in<='Z'){
-                       	cout << str << "为无效符号,请重新输入" << endl;
-			return 0;	
+		if (in >='A'&&in<='Z'){
+		     cout << str << "为无效符号,请重新输入" << endl;
+		     return 0;
 		}
                 //小写符号串，允许由a-z,0-9或下划线组成
                 if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
