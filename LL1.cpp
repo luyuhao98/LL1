@@ -5,8 +5,9 @@
 #include <fstream>
 #include <map>
 #include <iomanip>
-
-// #include <algorithm>
+#include <stack>
+#include <algorithm>
+//
 // #include <typeinfo>
 
 using namespace std;
@@ -110,7 +111,6 @@ void read()
                                 {
                                         cout << "ERROR: "
                                              << "row <" << row << "> column <" << i_input << ">"
-                                             << "Illegal left!" << endl
                                              << "\"" << input << "\"" << endl;
                                         exit(1);
                                 }
@@ -154,9 +154,9 @@ void read()
                                         {
                                                 str.pop_back(); //弹出单符号
 
+                                                T.insert(str);
                                                 prod.push_back(str);
                                                 str.clear();
-                                                T.insert(str);
 
                                                 str.push_back(in); //收回单符号
                                         }
@@ -271,6 +271,7 @@ void outT()
                 cout << *it << endl;
                 it++;
         }
+        cout << "---------" << endl;
 }
 
 //消除左递归
@@ -320,12 +321,15 @@ void elimimateleftrecursion()
                                 {
 
                                         vector<string> prod(iter->second.prods[i]);
-                                        if (prod.size() == 1 && !prod[0].compare("?")) //如果右部产生式为空则清空？
+                                        if (prod.size() == 1 && !prod[0].compare("?")) //如果右部产生式为空则清空?: 例如E->Ea|? => (1) E->E' (2) E'->aE'|?
                                                 prod.clear();
                                         prod.push_back(left2);
                                         right1.prods.push_back(prod);
                                 }
                         }
+                        vector<string> prod;
+                        prod.push_back("?");
+                        right2.prods.push_back(prod);
                         Nmodified.insert(pair<string, item>(left1, right1));
                         Nmodified.insert(pair<string, item>(left2, right2));
                 }
@@ -339,8 +343,11 @@ void elimimateleftrecursion()
                 iter++;
         }
 }
+//重载函数:串first 的声明
+set<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite);
 
-set<string> findfirst(string left) //如果fast为真则直接返回已经求好的first集
+//寻找符号的first集合
+set<string> findfirst(string left)
 {
         //return set
         set<string> myset;
@@ -362,26 +369,45 @@ set<string> findfirst(string left) //如果fast为真则直接返回已经求好
                 vector<vector<string>>::iterator it1 = right.prods.begin();
                 while (it1 != right.prods.end())
                 {
-                        //it2 产生式内元素指针
-                        vector<string>::iterator it2 = it1->begin();
+                        //调用函数：返回串的first集合
+                        set<string> get = findfirst(it1->begin(), it1->end());
+                        myset.insert(get.begin(), get.end());
 
-                        while (it2 != it1->end())
-                        {
-                                set<string> get = findfirst(*it2);
-                                myset.insert(get.begin(), get.end());
-
-                                //如果含有空（？）并且不为最后一个，那么？需要被排除，否则结束循环。
-                                if (!(get.count("?") && it2 != it1->end() - 1))
-                                        break;
-                                myset.erase("?");
-                                it2++;
-                        }
                         it1++;
                 }
         }
         return myset;
 }
-void fisrt()
+
+//返回串的first集合
+set<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite)
+{
+        vector<string>::iterator it = its;
+        set<string> myset;
+
+        while (it != ite)
+        {
+                set<string> get = findfirst(*it);
+
+                //优化：上一步已经找到*it的first集合，如果*i2为非终结符,那么就清算*it的first集合，并将*it的rfirst位标志为true
+                if (!T.count(*it) && (*it).compare("?"))
+                {
+                        Nmodified[*it].first.insert(get.begin(), get.end());
+                        Nmodified[*it].rfirst = true;
+                }
+                myset.insert(get.begin(), get.end());
+
+                //如果含有空（？）并且不为最后一个，那么？需要被排除，否则结束循环。
+                if (!(get.count("?") && it != ite - 1))
+                        break;
+                myset.erase("?");
+                it++;
+        }
+
+        return myset;
+}
+
+void first()
 {
         map<string, item>::iterator iter = Nmodified.begin();
         while (iter != Nmodified.end())
@@ -393,9 +419,9 @@ void fisrt()
         }
 }
 
-set<string> findfollow(string n) //fast为true则直接返回求号的follow集合
+set<string> findfollow(string n)
 {
-
+        //如果已经找到follow集合，则直接返回
         if (Nmodified[n].rfollow)
         {
                 return Nmodified[n].follow;
@@ -422,26 +448,18 @@ set<string> findfollow(string n) //fast为true则直接返回求号的follow集�
                                                 myset.insert(get.begin(), get.end());
                                         }
                                 }
-                                //else：互斥关系：上面找到后直接跳到下一个，不判端isfind
+                                //else：互斥关系：上面找到后直接跳到下一个，不判断isfind
                                 else if (isfind)
                                 {
-                                        set<string> get = findfirst(*it2);
+                                        //取后面字符串的first集
+                                        set<string> get = findfirst(it2, it1->end());
                                         myset.insert(get.begin(), get.end());
-
-                                        //如果不含空，则直接退出循环
-                                        if (!(get.count("?")))
-                                                break;
-                                        //如果含空且为最后一个，且n不为left,即A->αBβ中，A!=B，?∈first(β),那么follow（A）插入follow（B）中
-                                        else if (it2 == it1->end() - 1)
+                                        //如果含空字符,则将空(?)排除后，将产生式左侧非终结符的follow集加入
+                                        if (get.count("?"))
                                         {
                                                 myset.erase("?");
                                                 set<string> get = findfollow(iter->first);
                                                 myset.insert(get.begin(), get.end());
-                                        }
-                                        //如果含有空且不为最后一个,或者含有空为最后一个但是n为left,那么去掉空后，继续循环。
-                                        else
-                                        {
-                                                myset.erase("?");
                                         }
                                 }
                                 it2++;
@@ -450,7 +468,6 @@ set<string> findfollow(string n) //fast为true则直接返回求号的follow集�
                 }
                 iter++;
         }
-
         return myset;
 }
 void follow()
@@ -465,13 +482,309 @@ void follow()
                 iter++;
         }
 }
+
+//Forecast analysis table 预测分析表
+map<string, map<string, vector<string>>> FAT;
+//构造预测分析表
+void makeFAT()
+{
+        auto iter = Nmodified.begin();
+	vector<string> synch;
+	synch.push_back("synch");
+        while (iter != Nmodified.end())
+        {
+                auto it1 = iter->second.prods.begin();
+                //it1代表每一个产生式
+                while (it1 != iter->second.prods.end())
+                {
+                        //get为每个产生式的first集合
+                        auto get = findfirst(it1->begin(), it1->end());
+                        auto it2 = get.begin();
+                        bool hasempty = false;
+                        while (it2 != get.end())
+                        {
+                                //it2非空，即终结符号时
+                                if ((*it2).compare("?"))
+                                {
+					if(!FAT[iter->first].count(*it2)){
+				      		FAT[iter->first][*it2] = *it1;
+					}
+					else {
+						cout<<"["<<iter->first<<","<<*it2<<"]"<<"处表项冲突!"<<endl;
+						exit(0);
+					}
+                                }
+                                else
+                                {
+                                        hasempty = true;
+                                }
+                                it2++;
+                        }
+                        if (hasempty)
+                        {
+                                get = findfollow(iter->first);
+                                it2 = get.begin();
+                                while (it2 != get.end())
+                                {	
+					if(!FAT[iter->first].count(*it2)){
+				  		FAT[iter->first][*it2] = *it1;
+					}
+					else {
+						cout<<"["<<iter->first<<","<<*it2<<"]"<<"处表项冲突!"<<endl;
+						exit(0);
+					}
+                                        it2++;
+                                }
+                        }
+                        it1++;
+                }
+
+		auto get = findfollow(iter->first);
+		auto it2 = get.begin();
+		while(it2!=get.end()){
+			if(!FAT[iter->first].count(*it2)){
+				FAT[iter->first][*it2] = synch;
+			}
+			it2++;
+		}
+                iter++;
+        }
+}
+void outFAT()
+{
+
+        cout << endl
+             << "Forecast analysis Table :" << endl;
+        vector<string> y(T.begin(), T.end());
+        y.push_back("$");
+        auto ity = y.begin();
+        cout << "| " << setiosflags(ios::left) << setw(5) << "";
+        while (ity != y.end())
+        {
+                cout << "| " << setw(10) << *ity;
+                ity++;
+        }
+        cout << "|" << endl;
+        for (int i = 0; i < (T.size() + 1) * 12 + 8; i++)
+        {
+                cout << "-";
+        }
+        cout << endl;
+        auto itx = Nmodified.begin();
+        while (itx != Nmodified.end())
+        {
+                cout << "| " << setw(5) << itx->first;
+                ity = y.begin();
+                while (ity != y.end())
+                {
+                        if (FAT[itx->first].count(*ity))
+                        {
+                                string stemp(itx->first);
+                                stemp += "->";
+                                //cout<<itx->first<<"->";
+                                auto it1 = FAT[itx->first][*ity];
+                                auto it2 = it1.begin();
+                                while (it2 != it1.end())
+                                {
+                                        stemp += *it2;
+                                        it2++;
+                                }
+                                cout << "| " << setw(10) << stemp;
+                        }
+                        else
+                        {
+                                cout << "| " << setw(10) << "ERROR";
+                        }
+                        ity++;
+                }
+                itx++;
+                cout << "|" << endl;
+        }
+}
+//输入栈
+vector<string> inputstack;
+
+int getinputstack()
+{
+        //清空栈
+        inputstack.clear();
+        //输入字符串
+        string input;
+        cin >> input;
+        //符号str
+        string str;
+        for (int i = 0; i < input.size(); i++)
+        {
+                char in = input[i];
+                str.push_back(in);
+                //小写符号串，允许由a-z,0-9或下划线组成
+                if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
+                {
+                        continue;
+                }
+
+                //单符号，如‘A’终结符 ，如‘*’ 非终结符，如‘|’分界符`,以及空字符表示’？‘
+                else
+                {
+                        //如果只有单字符，str长度为1
+                        //此情况针对 小写符号串
+                        if (str.size() > 1)
+                        {
+                                str.pop_back(); //弹出单符号
+
+                                //若str不存在则报错，return
+                                if (!T.count(str))
+                                {
+                                        cout << str << "为无效符号,请重新输入" << endl;
+                                        return 0;
+                                }
+                                inputstack.push_back(str);
+                                str.clear();
+                                str.push_back(in); //收回单符号
+                        }
+                        inputstack.push_back(str);
+                        str.clear();
+                }
+        }
+        if (str.size())
+        {
+                if (!T.count(str))
+                {
+                        cout << str << "为无效符号,请重新输入" << endl;
+                        return 0;
+                }
+                inputstack.push_back(str);
+                str.clear();
+        }
+        inputstack.push_back("$");
+        //输入栈逆转
+
+        reverse(inputstack.begin(), inputstack.end());
+        return 1;
+}
+void analysis()
+{
+        vector<string> astack; //分析栈
+        astack.push_back("$");
+        astack.push_back(Nmodified.begin()->first);
+        //满足分析栈或输入栈为空则结束
+        while (!(astack.empty() || inputstack.empty()))
+        {
+                //带输出串
+                string str;
+
+                //打印分析栈
+                auto it = astack.begin();
+                while (it != astack.end())
+                {
+                        str += *it;
+                        it++;
+                }
+                cout << setiosflags(ios::right) << setw(15) << str;
+                str.clear();
+                //反向打印输入栈
+                auto it1 = inputstack.rbegin();
+                while (it1 != inputstack.rend())
+                {
+                        str += *it1;
+                        it1++;
+                }
+                cout << setiosflags(ios::right) << setw(25) << str;
+                str.clear();
+
+                //如果栈顶相等，此时肯定两个栈顶为两个终结符或$
+                if (!(astack.end() - 1)->compare(*(inputstack.end() - 1)))
+                {
+                        astack.pop_back();
+                        inputstack.pop_back();
+                }
+                //否则当左侧栈顶为非终结符,且列表中存在时
+                else if (FAT.count(*astack.rbegin()) && FAT[*astack.rbegin()].count(*(inputstack.rbegin())))
+                {
+                        //如果为synch
+                        if (!FAT[*astack.rbegin()][*inputstack.rbegin()].begin()->compare("synch"))
+                        {
+        			str+="Error,[";
+				str+=*astack.rbegin();
+				str+=",";
+				str+=*inputstack.rbegin();
+				str+="]=synch,弹出分析栈顶";
+				str+=*astack.rbegin();
+	      			cout << setiosflags(ios::right) << setw(15) << str;
+				astack.pop_back();
+
+                        }
+                        //如果为表达式时
+                        else
+                        {
+                                //打印输出，即分析过程
+                                str += *(astack.end() - 1);
+                                str += "—>";
+                                it = FAT[*(astack.end() - 1)][*(inputstack.end() - 1)].begin();
+                                while (it != FAT[*(astack.end() - 1)][*(inputstack.end() - 1)].end())
+                                {
+                                        str += *it;
+                                        it++;
+                                }
+                                cout << setiosflags(ios::right) << setw(15) << str;
+                                str.clear();
+
+                                string needpop(*astack.rbegin());
+                                astack.pop_back();
+                                it1 = FAT[needpop][*inputstack.rbegin()].rbegin();
+
+                                while (it1 != (FAT[needpop][*inputstack.rbegin()]).rend())
+                                {
+                                        if(it1->compare("?"))
+                                                astack.push_back(*it1);
+                                        it1++;
+                                }
+                        }
+                }
+                //如果左侧栈顶为非终结符，表中不存在，则按ERROR处理
+                else if (FAT.count(*astack.rbegin()) && !FAT[*astack.rbegin()].count(*(inputstack.rbegin())))
+                {
+			str+="Error,[";
+			str+=*astack.rbegin();
+			str+=",";
+			str+=*inputstack.rbegin();
+			str+="]=空白，弹出输入栈顶";
+			str+=*inputstack.rbegin();
+                        cout << setiosflags(ios::right) << setw(15) << str;
+			inputstack.pop_back();
+
+                }
+                //即，如果左侧栈顶为终结符或$，但是与右侧栈顶不相同,则将左侧栈顶弹出。
+                else
+                {
+			str+="Error,分析栈顶";
+			str+=*astack.rbegin();
+			str+="与输入栈顶";
+			str+=*inputstack.rbegin();
+			str+="不匹配，故弹出分析栈顶";
+                        cout << setiosflags(ios::right) << setw(15) << str;
+			astack.pop_back();
+                }
+                cout<<endl;
+        }
+	if(inputstack.empty()&&astack.empty()){
+		cout<<"分析成功!"<<endl;
+	}
+	else{
+		cout<<"分析失败"<<endl;
+	}
+}
 int main()
 {
         read();
         elimimateleftrecursion();
         outProds(Nmodified);
-        fisrt();
+        first();
         follow();
         outset();
         outT();
+        makeFAT();
+        outFAT();
+        while (!getinputstack());
+        analysis();
 }
