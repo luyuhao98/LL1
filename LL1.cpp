@@ -5,20 +5,14 @@
 #include <fstream>
 #include <map>
 #include <iomanip>
-#include <stack>
 #include <algorithm>
-//
-// #include <typeinfo>
 
 using namespace std;
 
 /*-------全局变量--------*/
 
 /*文件读入流*/
-ifstream fin("input.txt");
-
-// /*文件输出流*/
-// ofstream fout("output.txt");
+ifstream fin("Grammar.txt");
 
 /*非终结符对应项目*/
 class item
@@ -234,31 +228,44 @@ void outProds(map<string, item> &N)
 
 void outset()
 {
-        map<string, item>::iterator iter = Nmodified.begin();
+	cout<<left<<setw(5)<<""<<"|"<<setw(20)<<"  First"<<"|"<<setw(20)<<"  Follow"<<endl;
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+	
+	map<string, item>::iterator iter = Nmodified.begin();
         while (iter != Nmodified.end())
         {
+		cout<<setw(5)<<iter->first<<"|";
                 /*输出First集*/
-                cout << "First set of < " << iter->first << " > : { ";
+		string str;
                 set<string>::iterator it = iter->second.first.begin();
                 while (it != iter->second.first.end())
                 {
-                        cout << *it << " ";
+			str+=" ";
+                        str+=*it;
                         it++;
                 }
-                cout << "}" << endl;
+		cout<<setw(20)<<str<<"|";
+		str.clear();
 
                 /*输出FOLLOW集*/
-                cout << "Follow set of < " << iter->first << " > : { ";
                 it = iter->second.follow.begin();
                 while (it != iter->second.follow.end())
                 {
-                        cout << *it << " ";
+			str+=" ";
+			str+=*it;
                         it++;
                 }
-                cout << "}" << endl;
-
+		cout<<setw(20)<<str<<endl;
                 iter++;
-        }
+        }	
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+	
 }
 //输出终结符
 void outT()
@@ -555,7 +562,12 @@ void outFAT()
 
         cout << endl
              << "Forecast analysis Table :" << endl;
-        vector<string> y(T.begin(), T.end());
+         for (int i = 0; i < (T.size() + 1) * 12 + 8; i++)
+        {
+                cout << "-";
+        }
+        cout << endl;    
+     	vector<string> y(T.begin(), T.end());
         y.push_back("$");
         auto ity = y.begin();
         cout << "| " << setiosflags(ios::left) << setw(5) << "";
@@ -600,6 +612,12 @@ void outFAT()
                 itx++;
                 cout << "|" << endl;
         }
+
+	for (int i = 0; i < (T.size() + 1) * 12 + 8; i++){
+      		 cout << "-";
+        }
+        cout << endl;
+        
 }
 //输入栈
 vector<string> inputstack;
@@ -607,7 +625,8 @@ vector<string> inputstack;
 int getinputstack()
 {
         //清空栈
-        inputstack.clear();
+        inputstack.clear(); 
+	cout<<endl<<"Input Buffer: ";
         //输入字符串
         string input;
         cin >> input;
@@ -617,6 +636,11 @@ int getinputstack()
         {
                 char in = input[i];
                 str.push_back(in);
+		//大写符号均为error
+		if(in>='A'&&in<='Z'){
+                       	cout << str << "为无效符号,请重新输入" << endl;
+			return 0;	
+		}
                 //小写符号串，允许由a-z,0-9或下划线组成
                 if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
                 {
@@ -667,6 +691,20 @@ void analysis()
         vector<string> astack; //分析栈
         astack.push_back("$");
         astack.push_back(Nmodified.begin()->first);
+	
+	//打印表头
+	
+	for(int i = 0;i < 54;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
+        cout << left << setw(15) <<"  analysis"<<"| ";
+	cout << left << setw(20) <<" input" <<"| ";
+	cout << left << setw(15) <<" output" <<endl;
+	for(int i = 0;i < 54;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
         //满足分析栈或输入栈为空则结束
         while (!(astack.empty() || inputstack.empty()))
         {
@@ -680,7 +718,7 @@ void analysis()
                         str += *it;
                         it++;
                 }
-                cout << setiosflags(ios::right) << setw(15) << str;
+                cout << left << setw(15) << str<<"| ";
                 str.clear();
                 //反向打印输入栈
                 auto it1 = inputstack.rbegin();
@@ -689,7 +727,7 @@ void analysis()
                         str += *it1;
                         it1++;
                 }
-                cout << setiosflags(ios::right) << setw(25) << str;
+                cout << right << setw(20) << str<<"| ";
                 str.clear();
 
                 //如果栈顶相等，此时肯定两个栈顶为两个终结符或$
@@ -710,7 +748,7 @@ void analysis()
 				str+=*inputstack.rbegin();
 				str+="]=synch,弹出分析栈顶";
 				str+=*astack.rbegin();
-	      			cout << setiosflags(ios::right) << setw(15) << str;
+	      			cout << left << setw(15) << str;
 				astack.pop_back();
 
                         }
@@ -726,7 +764,7 @@ void analysis()
                                         str += *it;
                                         it++;
                                 }
-                                cout << setiosflags(ios::right) << setw(15) << str;
+                                cout << left << setw(15) << str;
                                 str.clear();
 
                                 string needpop(*astack.rbegin());
@@ -750,7 +788,7 @@ void analysis()
 			str+=*inputstack.rbegin();
 			str+="]=空白，弹出输入栈顶";
 			str+=*inputstack.rbegin();
-                        cout << setiosflags(ios::right) << setw(15) << str;
+                        cout << left << setw(15) << str;
 			inputstack.pop_back();
 
                 }
@@ -762,29 +800,43 @@ void analysis()
 			str+="与输入栈顶";
 			str+=*inputstack.rbegin();
 			str+="不匹配，故弹出分析栈顶";
-                        cout << setiosflags(ios::right) << setw(15) << str;
+                        cout << left << setw(15) << str;
 			astack.pop_back();
                 }
                 cout<<endl;
         }
+
+	for(int i = 0;i < 54;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
+        
 	if(inputstack.empty()&&astack.empty()){
 		cout<<"分析成功!"<<endl;
 	}
 	else{
 		cout<<"分析失败"<<endl;
 	}
+
 }
 int main()
 {
+	cout<<"确认语法文件Grammar.txt编辑完成，按任意键继续"<<endl;
+	getchar();
         read();
+	cout<<"词法分析成功！开始消除左递归"<<endl;
         elimimateleftrecursion();
+	cout<<"消除左递归后，文法如下:"<<endl;
         outProds(Nmodified);
         first();
         follow();
+	cout<<endl<<"求得各非终结符的First集Follow集:"<<endl;
         outset();
-        outT();
+        //outT();
         makeFAT();
         outFAT();
+	cout<<"请输入待分析字符串"<<endl;
         while (!getinputstack());
+	cout<<"分析过程:"<<endl;
         analysis();
 }
