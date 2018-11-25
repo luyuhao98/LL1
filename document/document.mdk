@@ -190,10 +190,68 @@ Follow(A)={a|S=*>...Aa...,a∈VT}
  * 每一步输出当前分析栈(左侧为栈底)，输入缓冲区(右侧为栈底)以及\
    输出(正确：产生式；错误：错误处理方式)。
  * 根据[错误处理策略][#error],处理产生的错误，保证不会卡住。
-9. 分析栈输入栈一者为空则分析结束，二者均为空则分析成功，
-## 特色
+9. 分析栈输入栈一者为空则分析结束，二者均为空则分析成功，否则分析失败。
+
+
+## 数据结构
+```
+/*非终结符对应项目*/
+class item
+{
+      public:
+        set<string> first;  //first set
+        set<string> follow; //follow set
+        /*产生式集合,每个产生式是string的集合*/
+        vector<vector<string>> prods;
+        bool rfirst;
+        bool rfollow;
+        item()
+        {
+                rfirst = false;
+                rfollow = false;
+        }
+};
+
+```
 
 ## 全局变量及函数
+
+**全局变量格式 <类型> <变量名>(默认值)**\
+**函数格式<类型> <函数名>(参数表)**\
+
+ifstream fin("Grammar.txt")
+ ~文件输入流
+map`<string,item>` Nin
+ ~未消除左递归的非终结符集
+map`<string,item>` Nmodified
+ ~消除左递归后的非终结符集
+set`<string>`T
+ ~终结符结合
+map`<string,map<string,vector<string>>>` FAT
+ ~Forecast analysis table 预测分析表FAT，即M表
+vector`<string>` inputstack
+ ~输入栈
+vector`<stirng>` astack
+ ~分析栈
+void read()
+ ~读入文件函数，并进行词法分析，转化为程序内部
+void outProds(`map<string,item> &N`)
+ ~给定非终结符集，输出产生式，将内部非终结符集数据结构，以产生式方式输出。
+void outset()
+ ~输出消除左递归后的非终结符的First、Follow集
+void outT()
+ ~输出终结符集。(调试用)
+void elimimateleftrecursion()
+ ~消除左递归函数(此后称“非终结符”均指“消除左递归后的非终结符集”)。新产生的非终结符为原终结符加撇`’` 如：`A'`
+set`<string>` findfirst(string left)
+ ~寻找单符号的First集
+set`<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite)`
+ ~findfirst的重载函数，寻找符号串(多个符号的连接，如产生式)的First集
+void first()
+ ~构造所有非终结符的first集
+
+
+
 
 # 程序及执行
 
