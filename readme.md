@@ -5,7 +5,6 @@
 # 文件目录：
 LL1.pp　　　　　　　　　　　　　 LL(1)语法分析程序\
 LL1　　　　　　　　　　　　　　　Linux下可执行文件，由g++7.3.0编译\
-LL1.exe　　　　　　　　　　　　　Win10下可执行文件，由vs2017编译\
 Grammar.txt　　　　　　　　　　　文法文件\
 out　　　　　　　　　　　　　　　　\
 ｜——**document.html**　　　　　　　 **文档**，html格式,请用浏览器打开(推荐Chrome，不推荐IE)\
