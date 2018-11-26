@@ -596,9 +596,11 @@ void outFAT()
                 {
                         if (FAT[itx->first].count(*ity))
                         {
-                                string stemp(itx->first);
-                                stemp += "->";
-                                //cout<<itx->first<<"->";
+				string stemp;
+				if(FAT[itx->first][*ity].begin()->compare("synch")){
+					stemp += itx->first;
+					stemp += "->";
+				}
                                 auto it1 = FAT[itx->first][*ity];
                                 auto it2 = it1.begin();
                                 while (it2 != it1.end())
@@ -634,7 +636,7 @@ int getinputstack()
 	cout<<endl<<"Input Buffer: ";
         //输入字符串
         string input;
-        cin >> input;
+	std::getline(std::cin,input);
         //符号str
         string str;
         for (int i = 0; i < input.size(); i++)
@@ -645,11 +647,14 @@ int getinputstack()
 		     cout << str << "为无效符号,请重新输入" << endl;
 		     return 0;
 		}
+			
+		
                 //小写符号串，允许由a-z,0-9或下划线组成
                 if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
                 {
                         continue;
                 }
+
 
                 //单符号，如‘*’ 非终结符，如‘|’分界符`,以及空字符表示’？‘
                 else
@@ -670,7 +675,14 @@ int getinputstack()
                                 str.clear();
                                 str.push_back(in); //收回单符号
                         }
-                        inputstack.push_back(str);
+			//如果不为空格，则检测后入栈
+			if (in !=' '){
+		        	if (!T.count(str)){
+                               		cout << str << "为无效符号,请重新输入" << endl;
+                                	return 0;
+                        	}
+                       		inputstack.push_back(str);
+			}
                         str.clear();
                 }
         }
