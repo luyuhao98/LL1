@@ -16,7 +16,7 @@ document　　　　　　　　　　　　　\
 # 使用方法
 
 1. 编辑文法文件    Grammar.txt
-2. 运行可执行文件　lex/lex.exe
+2. 运行可执行文件  ./LL1
 
 # 修改文档　(需要madoko环境)
 1. 编辑`document/document.mdk `
