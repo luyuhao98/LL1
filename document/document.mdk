@@ -16,6 +16,19 @@ Package : [UTF8]ctex
 
 ~ Begin MainPanel
 
+# Features
+1. 采用Ｃ++开发，利用C++ stl库如vector,set,map等手动构造数据结构，并从算法层面进行一定程度的优化。代码逻辑分明，思路清晰；程序执行高效
+2. 极大的人性化：
+  * 用户只需要修改文法Grammer.txt(默认为原题给定文法)，即可自动构造预测分析表。文法中**随意空格**，支持小写字母数字下划线构成的**终结字符串**
+  * 输入待分析串，格式化输出每一步的栈状态与输出，具有完备的纠错能力，能够最后判定分析是否成功。输入串支持空格断句，自动检测输入串是否符合规范，不符合规范则要求重新输入。
+  * 对于过程中每一步，都会有准确的提示或错误信息。
+3. 强大的功能
+  * 适用于**所有不含有隐式左递归的上下文无关文法**[^f1]
+  * 自动消除显示左递归，自动构造first集follow集
+  * 利用动态规划，提高了first集follow集的计算速度
+  * 分析过程具有完备的[纠错能力][#error]，保证分析的完整进行。
+4. 规范的输出：
+  * 输出格式优美规范。
 # LL(1)语法分析策略
 ## LL(1)文法定义
 如果一个文法的预测分析表M不含多重定义的表项，则称该文法为LL(1)文法。
@@ -180,7 +193,7 @@ Follow(A)={a|S=*>...Aa...,a∈VT}
 6. 根据所求出的first集follow集，利用[算法4.2][#algo4.2]构造预测分析。包括synch的填充。
 7. 要求用户在命令窗口中输入待分析串，也进行**词法分析**
  * 不需要输入\$结尾，程序自动添加。
- * 并不自动跳过空白符
+ * 遇到空格自动断句
  * 以第3条提到的终结符格式分割以获取符号。
  * 检测到大写字符则ERROR
  * 判断所获得的*非大写符号*或*符号串*是否属于非终结符集合，如果不属于则Error
@@ -194,7 +207,279 @@ Follow(A)={a|S=*>...Aa...,a∈VT}
 
 
 ## 数据结构
+
+符号
+ ~string 字符串类型。选择理由：文法符号不止一个字符
+终结符集
+ ~set<string> 字符串集合。
+非终结符号集(重点)
+ ~map<string，item> 映射关系对类型。其中key为非终结符，value为item。item结构如下：
+>```
+>/*非终结符对应项目*/
+>class item
+>{
+>      public:
+>        //1.first集，字符串集合
+>        set<string> first;
+>
+>        //2.follow集,字符串集合
+>        set<string> follow;            
+>
+>        //3.非终结符右侧 产生式集合
+>        //产生式集合中的每个产生式，类型为vector<string>,字符串向量。
+>        vector<vector<string>> prods;
+>
+>        //4.标志first集是否准备好
+>        bool rfirst;
+>
+>        //5.标志follow集是否准备好
+>        bool rfollow;
+>        
+>        //构造函数，rfirst及rfollow均初始化为false
+>        //作用：在求first集follow集过程中，一旦求得标志位改为true。
+>        //     动态规划，在遍历过程中避免重复计算. 
+>        item()
+>        {
+>                rfirst = false;
+>                rfollow = false;
+>        }
+>};
+>
+>```
+
+输入栈及分析栈
+ ~vector<string>类型
+
+## 全局变量及函数
+
+
+**全局变量格式 <类型> <变量名>(默认值)**\
+**函数格式<类型> <函数名>(参数表)**\
+
+ifstream fin("Grammar.txt")
+ ~文件输入流
+map`<string,item>` Nin
+ ~未消除左递归的非终结符集
+map`<string,item>` Nmodified
+ ~消除左递归后的非终结符集
+set`<string>`T
+ ~终结符结合
+map`<string,map<string,vector<string>>>` FAT
+ ~Forecast analysis table 预测分析表FAT，即M表
+vector`<string>` inputstack
+ ~输入栈
+vector`<stirng>` astack
+ ~分析栈
+void read()
+ ~读入文件函数，并进行词法分析，转化为程序内部
+void outProds(`map<string,item> &`)
+ ~给定非终结符集，输出产生式，将内部非终结符集数据结构，以产生式方式输出。
+void outset()
+ ~输出消除左递归后的非终结符的First、Follow集
+void outT()
+ ~输出终结符集。(调试用)
+void elimimateleftrecursion()
+ ~消除左递归函数(此后称“非终结符”均指“消除左递归后的非终结符集”)。新产生的非终结符为原终结符加撇`’` 如：`A'`
+set`<string>` findfirst(string)
+ ~寻找并返回单符号的First集
+set`<string> findfirst(vector<string>::iterator, vector<string>::iterator)`
+ ~findfirst的重载函数，寻找符号串(多个符号的连接，如产生式)的First集
+void first()
+ ~构造所有非终结符的first集，递归求得+动态规划，极大的提高了程序的执行效率。
+set <string> findfollow(string)
+ ~寻找并返回单符号的Follow集，递归求得+动态规划，极大的提高了程序的执行效率。
+void follow()
+ ~构造所有非终结符的follow集
+void makeFAT()
+ ~构造预测分析表
+void outFAT()
+ ~输出预测分析表
+int getinputstack()
+ ~input分析字符串。无需加`$`。格式不合法则循环重新输入，合法则继续执行
+void analysis()
+ ~分析输入串，并逐步输出
+int main()
+ ~主函数main
+
+
+# 程序及执行
+
+## 程序相关文件结构
+>./\
+>    |——  LL1.cpp                 : c++程序\
+>    |——  LL1                     : Linux可执行文件,由ｇ++7.3.0编译\
+>    |——  LL1.exe                 : Windows可执行文件，由vs2017编译\
+>    |——  Grammer.txt             : 文法输入文件\
+
+## 编译及测试环境
+> (1)Ubuntu 18.04 采用g++7.3.0编译\
+> (2)Win10  采用vs2017编译\
+
+## 给定文法测试
+
+**Grammar.txt**:
 ```
+E->E+T|E-T|T
+T->T*F|T/F|F
+F->(E)|num
+```
+**执行效果**
+
+```
+确认语法文件Grammar.txt编辑完成，按任意键继续
+
+词法分析成功！开始消除左递归
+消除左递归后，文法如下:
+E->TE'
+E'->+TE'
+E'->-TE'
+E'->?
+F->(E)
+F->num
+T->FT'
+T'->*FT'
+T'->/FT'
+T'->?
+
+求得各非终结符的First集Follow集:
+-----------------------------------------------
+     |               First|              Follow
+-----------------------------------------------
+E    | ( num              | $ )                
+E'   | + - ?              | $ )                
+F    | ( num              | $ ) * + - /        
+T    | ( num              | $ ) + -            
+T'   | * / ?              | $ ) + -            
+-----------------------------------------------
+
+Forecast analysis Table :
+--------------------------------------------------------------------------------------------------------
+|      | (         | )         | *         | +         | -         | /         | num       | $         |
+--------------------------------------------------------------------------------------------------------
+| E    | E->TE'    | synch     | ERROR     | ERROR     | ERROR     | ERROR     | E->TE'    | synch     |
+| E'   | ERROR     | E'->?     | ERROR     | E'->+TE'  | E'->-TE'  | ERROR     | ERROR     | E'->?     |
+| F    | F->(E)    | synch     | synch     | synch     | synch     | synch     | F->num    | synch     |
+| T    | T->FT'    | synch     | ERROR     | synch     | synch     | ERROR     | T->FT'    | synch     |
+| T'   | ERROR     | T'->?     | T'->*FT'  | T'->?     | T'->?     | T'->/FT'  | ERROR     | T'->?     |
+--------------------------------------------------------------------------------------------------------
+请输入待分析字符串
+
+Input Buffer: (num*(num+num))/num
+分析过程:
+-----------------------------------------------------------
+  analysis          |  input              |  output        
+-----------------------------------------------------------
+$E                  | (num*(num+num))/num$| E—>TE'       
+$E'T                | (num*(num+num))/num$| T—>FT'       
+$E'T'F              | (num*(num+num))/num$| F—>(E)       
+$E'T')E(            | (num*(num+num))/num$| 
+$E'T')E             |  num*(num+num))/num$| E—>TE'       
+$E'T')E'T           |  num*(num+num))/num$| T—>FT'       
+$E'T')E'T'F         |  num*(num+num))/num$| F—>num       
+$E'T')E'T'num       |  num*(num+num))/num$| 
+$E'T')E'T'          |     *(num+num))/num$| T'—>*FT'     
+$E'T')E'T'F*        |     *(num+num))/num$| 
+$E'T')E'T'F         |      (num+num))/num$| F—>(E)       
+$E'T')E'T')E(       |      (num+num))/num$| 
+$E'T')E'T')E        |       num+num))/num$| E—>TE'       
+$E'T')E'T')E'T      |       num+num))/num$| T—>FT'       
+$E'T')E'T')E'T'F    |       num+num))/num$| F—>num       
+$E'T')E'T')E'T'num  |       num+num))/num$| 
+$E'T')E'T')E'T'     |          +num))/num$| T'—>?        
+$E'T')E'T')E'       |          +num))/num$| E'—>+TE'     
+$E'T')E'T')E'T+     |          +num))/num$| 
+$E'T')E'T')E'T      |           num))/num$| T—>FT'       
+$E'T')E'T')E'T'F    |           num))/num$| F—>num       
+$E'T')E'T')E'T'num  |           num))/num$| 
+$E'T')E'T')E'T'     |              ))/num$| T'—>?        
+$E'T')E'T')E'       |              ))/num$| E'—>?        
+$E'T')E'T')         |              ))/num$| 
+$E'T')E'T'          |               )/num$| T'—>?        
+$E'T')E'            |               )/num$| E'—>?        
+$E'T')              |               )/num$| 
+$E'T'               |                /num$| T'—>/FT'     
+$E'T'F/             |                /num$| 
+$E'T'F              |                 num$| F—>num       
+$E'T'num            |                 num$| 
+$E'T'               |                    $| T'—>?        
+$E'                 |                    $| E'—>?        
+$                   |                    $| 
+-----------------------------------------------------------
+分析成功!
+
+```
+~ Figure { #Ggiven; caption:"给定文法分析效果图"; page-align:top}
+![Ggiven]
+~ 
+[Ggiven]: Ggiven.png "Ggiven"
+
+## 推广测试
+
+### 给定文法的不规范输入
+
+不规范输入1
+ ~num(num+num/num)
+**执行效果**
+
+~ Figure { #Gn1; caption:"不规范输入1:"; page-align:top}
+![Gn1]
+~ 
+[Gn1]: Gn1.png "Gn"
+
+不规范输入2
+ ~)(num*(num+num))/num
+**执行效果**
+
+~ Figure { #Gn2; caption:"不规范输入2:)(num*(num+num))/num"; page-align:top}
+![Gn2]
+~ 
+[Gn2]: Gn2.png "G1"
+ 
+
+### 文法1
+**Grammar.txt**
+```
+E->E +T|E- T|T
+T->T* F| T/F|  F|
+F->(E  )|num|veg123|  ?
+```
+**执行效果**
+~ Figure { #G1; caption:"文法1,输入为veg123+num*()"; page-align:top}
+![G1]
+~ 
+[G1]: G1.png "G1"
+
+### 文法2
+**Grammer.txt**
+```
+S->pA | qB
+A->cAd|a
+B->dB|c
+```
+**执行效果**
+~ Figure { #G2; caption:"文法2执行效果图，输入为pccadd"; page-align:top}
+![G2]
+~ 
+[G2]: G2.png "G2"
+
+## 代码 
+```cpp
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <fstream>
+#include <map>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+/*-------全局变量--------*/
+
+/*文件读入流*/
+ifstream fin("Grammar.txt");
+
 /*非终结符对应项目*/
 class item
 {
@@ -212,218 +497,850 @@ class item
         }
 };
 
-```
+/*原非终结符集合*/
 
-## 全局变量及函数
+map<string, item> Nin;
 
-**全局变量格式 <类型> <变量名>(默认值)**\
-**函数格式<类型> <函数名>(参数表)**\
+/*修改后终结符集合*/
+map<string, item> Nmodified;
 
-ifstream fin("Grammar.txt")
- ~文件输入流
-map`<string,item>` Nin
- ~未消除左递归的非终结符集
-map`<string,item>` Nmodified
- ~消除左递归后的非终结符集
-set`<string>`T
- ~终结符结合
-map`<string,map<string,vector<string>>>` FAT
- ~Forecast analysis table 预测分析表FAT，即M表
-vector`<string>` inputstack
- ~输入栈
-vector`<stirng>` astack
- ~分析栈
+/*终结符集合*/
+set<string> T;
+
+/*-------函数区----------*/
+
+/*读入文件，整理格式存入产生式*/
+/*按行读取，跳过空行，跳过空格，词法分析，拆分多句*/
 void read()
- ~读入文件函数，并进行词法分析，转化为程序内部
-void outProds(`map<string,item> &N`)
- ~给定非终结符集，输出产生式，将内部非终结符集数据结构，以产生式方式输出。
+{
+        string input; //每行输入
+        string str;   //待存符号
+        int i_input;  //input下标
+        char in;      //带判断字符
+
+        int row = 0;
+        while (getline(fin, input))
+        {
+                row++;
+                if (!input.compare("")) //相等返回0
+                        continue;       //遇到空行跳过
+
+                /*---词法分析部---*/
+
+                //1.获取产生式左部，限制必须为非终结符，即必须为大写字母。设置标记
+                int state = 0; //未获取产生式左部状态
+                string left;
+                item right;
+                vector<string> prod; //产生式
+
+                for (i_input = 0; i_input < input.size(); i_input++)
+                {
+                        //        str.clear();
+                        in = input[i_input];
+                        str.push_back(in);
+                        if (in == ' ')
+                        {
+                                str.pop_back();
+                                if (state == 1)
+                                {
+                                        cout << "ERROR: "
+                                             << "row <" << row << "> column <" << i_input << ">"
+                                             << "\"->\" is needed." << endl
+                                             << "\"" << input << "\"" << endl;
+                                        exit(1);
+                                }
+                                if (state == 2 && str.size())
+                                {
+                                        T.insert(str);
+                                        prod.push_back(str);
+                                        str.clear();
+                                }
+                                continue;
+                        }
+
+                        if (state == 0)
+                        {
+                                //非终结符
+                                if (in >= 'A' && in <= 'Z')
+                                {
+                                        left.push_back(in);
+                                        str.clear();
+                                        state = 1; //未获取
+                                }
+                                else
+                                {
+                                        cout << "ERROR: "
+                                             << "row <" << row << "> column <" << i_input << ">"
+                                             << "\"" << input << "\"" << endl;
+                                        exit(1);
+                                }
+                        }
+                        //读入 ->
+                        else if (state == 1)
+                        {
+                                if (str.size() == 2 && !str.compare("->"))
+                                {
+
+                                        str.clear();
+                                        state = 2;
+                                }
+                                else if (str.size() == 1 && !str.compare("-"))
+                                {
+                                        continue;
+                                }
+                                else
+                                {
+                                        cout << "ERROR: "
+                                             << "row <" << row << "> column <" << i_input << ">"
+                                             << "\"->\" Error!" << endl
+                                             << "\"" << input << "\"" << endl;
+                                        exit(1);
+                                }
+                        }
+                        //词法分析右式
+                        else if (state == 2)
+                        {
+                                //小写符号串，允许由a-z,0-9或下划线组成
+                                if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
+                                {
+                                        continue;
+                                }
+                                //单符号，如‘A’终结符 ，如‘*’ 非终结符，如‘|’分界符`,以及空字符表示’？‘
+                                else
+                                {
+                                        //如果只有单字符，str长度为1
+                                        //此情况针对 小写符号串
+                                        if (str.size() > 1)
+                                        {
+                                                str.pop_back(); //弹出单符号
+
+                                                T.insert(str);
+                                                prod.push_back(str);
+                                                str.clear();
+
+                                                str.push_back(in); //收回单符号
+                                        }
+                                        //判断是否为‘|’
+                                        if (in == '|')
+                                        {
+                                                //将产生式压入众产生式集合
+                                                right.prods.push_back(prod);
+                                                prod.clear();
+                                                str.clear();
+                                        }
+                                        else
+                                        {
+                                                if (!((in >= 'A' && in <= 'Z') || in == '?'))
+                                                        T.insert(str);
+                                                prod.push_back(str);
+                                                str.clear();
+                                        }
+                                }
+                        }
+                }
+
+                //句尾处理
+                if (state == 2)
+                {
+                        //如果符号串不为空，将str结尾存入产生式prod
+                        if (str.size())
+                        {
+                                T.insert(str);
+                                prod.push_back(str);
+                                str.clear();
+                        }
+
+                        //如果产生式不为空，则将产生式压入产生式集合
+                        if (prod.size())
+                        {
+                                right.prods.push_back(prod);
+                                prod.clear();
+                        }
+
+                        //将左右部分压入非终结符map
+                        Nin.insert(pair<string, item>(left, right));
+                        left.clear();
+                        right.prods.clear();
+                }
+                else if (state != 2)
+                {
+                        cout << "ILLEGAL LINE,WE JUST CAN'T MOVE ON";
+                        exit(1);
+                }
+        }
+}
+//输出产生式
+void outProds(map<string, item> &N)
+{
+        map<string, item>::iterator iter = N.begin();
+        while (iter != N.end())
+        {
+                vector<vector<string>>::iterator it1 = iter->second.prods.begin();
+                while (it1 != iter->second.prods.end())
+                {
+                        cout << iter->first << "->";
+                        vector<string>::iterator it2 = (*it1).begin();
+                        while (it2 != (*it1).end())
+                        {
+                                cout << *it2;
+                                it2++;
+                        }
+                        cout << endl;
+                        it1++;
+                }
+                iter++;
+        }
+}
+
 void outset()
- ~输出消除左递归后的非终结符的First、Follow集
+{
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+
+	cout<<setw(5)<<""<<"|"<<setw(20)<<"First"<<"|"<<setw(20)<<"Follow"<<endl;
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+	
+	map<string, item>::iterator iter = Nmodified.begin();
+        while (iter != Nmodified.end())
+        {
+		cout<<left<<setw(5)<<iter->first<<"|";
+                /*输出First集*/
+		string str;
+                set<string>::iterator it = iter->second.first.begin();
+                while (it != iter->second.first.end())
+                {
+			str+=" ";
+                        str+=*it;
+                        it++;
+                }
+		cout<<setw(20)<<str<<"|";
+		str.clear();
+
+                /*输出FOLLOW集*/
+                it = iter->second.follow.begin();
+                while (it != iter->second.follow.end())
+                {
+			str+=" ";
+			str+=*it;
+                        it++;
+                }
+		cout<<setw(20)<<str<<endl;
+                iter++;
+        }
+	for (int i = 0;i<47;i++){
+		cout<<"-";
+	}
+	cout<<endl;
+
+}
+//输出终结符
 void outT()
- ~输出终结符集。(调试用)
+{
+        set<string>::iterator it = T.begin();
+        cout << "----T----" << endl;
+
+        while (it != T.end())
+        {
+                cout << *it << endl;
+                it++;
+        }
+        cout << "---------" << endl;
+}
+
+//消除左递归
 void elimimateleftrecursion()
- ~消除左递归函数(此后称“非终结符”均指“消除左递归后的非终结符集”)。新产生的非终结符为原终结符加撇`’` 如：`A'`
-set`<string>` findfirst(string left)
- ~寻找单符号的First集
-set`<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite)`
- ~findfirst的重载函数，寻找符号串(多个符号的连接，如产生式)的First集
+{
+        map<string, item>::iterator iter = Nin.begin();
+        while (iter != Nin.end())
+        {
+                vector<vector<string>>::iterator it = iter->second.prods.begin();
+                int needEliminate = 0;
+                vector<int> recurse;
+
+                //定义Nmodified的左右
+                while (it != iter->second.prods.end())
+                {
+                        if (!iter->first.compare((*it)[0]))
+                        {
+                                needEliminate = 1;
+                                recurse.push_back(1); //A->Aa
+                        }
+                        else
+                        {
+                                recurse.push_back(0); //A->b
+                        }
+                        it++;
+                }
+
+                /*---Nmodified---*/
+                //如果需要修改
+                if (needEliminate)
+                {
+                        string left1(iter->first);
+                        string left2(iter->first);
+                        left2.push_back('\'');
+                        item right1, right2;
+
+                        for (int i = 0; i < recurse.size(); i++)
+                        {
+                                if (recurse[i])
+                                {
+                                        vector<string> prod;
+                                        prod.assign(iter->second.prods[i].begin() + 1, iter->second.prods[i].end());
+                                        prod.push_back(left2);
+                                        right2.prods.push_back(prod);
+                                }
+                                else
+                                {
+
+                                        vector<string> prod(iter->second.prods[i]);
+                                        if (prod.size() == 1 && !prod[0].compare("?")) //如果右部产生式为空则清空?: 例如E->Ea|? => (1) E->E' (2) E'->aE'|?
+                                                prod.clear();
+                                        prod.push_back(left2);
+                                        right1.prods.push_back(prod);
+                                }
+                        }
+                        vector<string> prod;
+                        prod.push_back("?");
+                        right2.prods.push_back(prod);
+                        Nmodified.insert(pair<string, item>(left1, right1));
+                        Nmodified.insert(pair<string, item>(left2, right2));
+                }
+                else
+                {
+                        Nmodified.insert(*iter);
+                }
+
+                needEliminate = 0;
+                recurse.clear();
+                iter++;
+        }
+}
+//重载函数:串first 的声明
+set<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite);
+
+//寻找符号的first集合
+set<string> findfirst(string left)
+{
+        //return set
+        set<string> myset;
+
+        //终结符或者空
+        if (T.count(left) || !left.compare("?"))
+        {
+                myset.insert(left);
+        }
+        else
+        {
+                if (Nmodified[left].rfirst)
+                { //快速返回first集
+                        return Nmodified[left].first;
+                }
+                //非终结符
+                item right(Nmodified[left]);
+                //it1 产生式指针
+                vector<vector<string>>::iterator it1 = right.prods.begin();
+                while (it1 != right.prods.end())
+                {
+                        //调用函数：返回串的first集合
+                        set<string> get = findfirst(it1->begin(), it1->end());
+                        myset.insert(get.begin(), get.end());
+
+                        it1++;
+                }
+        }
+        return myset;
+}
+
+//返回串的first集合
+set<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite)
+{
+        vector<string>::iterator it = its;
+        set<string> myset;
+
+        while (it != ite)
+        {
+                set<string> get = findfirst(*it);
+
+                //优化：上一步已经找到*it的first集合，如果*i2为非终结符,那么就清算*it的first集合，并将*it的rfirst位标志为true
+                if (!T.count(*it) && (*it).compare("?"))
+                {
+                        Nmodified[*it].first.insert(get.begin(), get.end());
+                        Nmodified[*it].rfirst = true;
+                }
+                myset.insert(get.begin(), get.end());
+
+                //如果含有空（？）并且不为最后一个，那么？需要被排除，否则结束循环。
+                if (!(get.count("?") && it != ite - 1))
+                        break;
+                myset.erase("?");
+                it++;
+        }
+
+        return myset;
+}
+
 void first()
- ~构造所有非终结符的first集
+{
+        map<string, item>::iterator iter = Nmodified.begin();
+        while (iter != Nmodified.end())
+        {
+                set<string> get = findfirst(iter->first);
+                iter->second.first.insert(get.begin(), get.end());
+                iter->second.rfirst = true;
+                iter++;
+        }
+}
 
+set<string> findfollow(string n)
+{
+        //如果已经找到follow集合，则直接返回
+        if (Nmodified[n].rfollow)
+        {
+                return Nmodified[n].follow;
+        }
+        //return set
+        set<string> myset;
 
-
-
-**全局变量格式 <类型> <变量名>(默认值)**\
-**函数格式<类型> <函数名>(参数表)**\
-
-ifstream fin("Grammar.txt")
- ~文件输入流
-map`<string,item>` Nin
- ~未消除左递归的非终结符集
-map`<string,item>` Nmodified
- ~消除左递归后的非终结符集
-set`<string>`T
- ~终结符结合
-map`<string,map<string,vector<string>>>` FAT
- ~Forecast analysis table 预测分析表FAT，即M表
-vector`<string>` inputstack
- ~输入栈
-vector`<stirng>` astack
- ~分析栈
-void read()
- ~读入文件函数，并进行词法分析，转化为程序内部
-void outProds(`map<string,item> &N`)
- ~给定非终结符集，输出产生式，将内部非终结符集数据结构，以产生式方式输出。
-void outset()
- ~输出消除左递归后的非终结符的First、Follow集
-void outT()
- ~输出终结符集。(调试用)
-void elimimateleftrecursion()
- ~消除左递归函数(此后称“非终结符”均指“消除左递归后的非终结符集”)。新产生的非终结符为原终结符加撇`’` 如：`A'`
-set`<string>` findfirst(string left)
- ~寻找并返回单符号的First集
-set`<string> findfirst(vector<string>::iterator its, vector<string>::iterator ite)`
- ~findfirst的重载函数，寻找符号串(多个符号的连接，如产生式)的First集
-void first()
- ~构造所有非终结符的first集
-set <string> findfollow(string n)
- ~寻找并返回单符号的Follow集
+        map<string, item>::iterator iter = Nmodified.begin();
+        while (iter != Nmodified.end())
+        {
+                vector<vector<string>>::iterator it1 = iter->second.prods.begin();
+                while (it1 != iter->second.prods.end())
+                {
+                        vector<string>::iterator it2 = it1->begin();
+                        bool isfind = 0;
+                        while (it2 != it1->end())
+                        { //it2是产生式子中的每一个符号
+                                if (!isfind && !n.compare(*it2))
+                                { //第一次找到非终结符号n
+                                        isfind = 1;
+                                        if (it2 == it1->end() - 1 && n.compare(iter->first))
+                                        { //如果n是最后一个字符，且不为left
+                                                set<string> get = findfollow(iter->first);
+                                                myset.insert(get.begin(), get.end());
+                                        }
+                                }
+                                //else：互斥关系：上面找到后直接跳到下一个，不判断isfind
+                                else if (isfind)
+                                {
+                                        //取后面字符串的first集
+                                        set<string> get = findfirst(it2, it1->end());
+                                        myset.insert(get.begin(), get.end());
+                                        //如果含空字符,则将空(?)排除后，将产生式左侧非终结符的follow集加入
+                                        if (get.count("?"))
+                                        {
+                                                myset.erase("?");
+                                                set<string> get = findfollow(iter->first);
+                                                myset.insert(get.begin(), get.end());
+                                        }
+                                }
+                                it2++;
+                        }
+                        it1++;
+                }
+                iter++;
+        }
+        return myset;
+}
 void follow()
- ~构造所有非终结符的follow集
+{
+        map<string, item>::iterator iter = Nmodified.begin();
+        iter->second.follow.insert("$"); //第一个插$
+        while (iter != Nmodified.end())
+        {
+                set<string> get = findfollow(iter->first);
+                iter->second.follow.insert(get.begin(), get.end());
+                iter->second.rfollow = true;
+                iter++;
+        }
+}
+
+//Forecast analysis table 预测分析表
+map<string, map<string, vector<string>>> FAT;
+//构造预测分析表
 void makeFAT()
- ~构造预测分析表
+{
+        auto iter = Nmodified.begin();
+	vector<string> synch;
+	synch.push_back("synch");
+        while (iter != Nmodified.end())
+        {
+                auto it1 = iter->second.prods.begin();
+                //it1代表每一个产生式
+                while (it1 != iter->second.prods.end())
+                {
+			auto get = findfirst(it1->begin(), it1->end());
+                        //get为每个产生式的first集合
+                        auto it2 = get.begin();
+                        bool hasempty = false;
+                        while (it2 != get.end())
+                        {
+                                //it2非空，即终结符号时
+                                if ((*it2).compare("?"))
+                                {
+					if(!FAT[iter->first].count(*it2)){
+				      		FAT[iter->first][*it2] = *it1;
+					}
+					else {
+						cout<<"["<<iter->first<<","<<*it2<<"]"<<"处表项冲突!"<<endl;
+						exit(0);
+					}
+                                }
+                                else
+                                {
+                                        hasempty = true;
+                                }
+                                it2++;
+                        }
+                        if (hasempty)
+                        {
+                                get = findfollow(iter->first);
+                                it2 = get.begin();
+                                while (it2 != get.end())
+                                {	
+					if(!FAT[iter->first].count(*it2)){
+				  		FAT[iter->first][*it2] = *it1;
+					}
+					else {
+						cout<<"["<<iter->first<<","<<*it2<<"]"<<"处表项冲突!"<<endl;
+						exit(0);
+					}
+                                        it2++;
+                                }
+                        }
+                        it1++;
+                }
+
+		auto get = findfollow(iter->first);
+		auto it2 = get.begin();
+		while(it2!=get.end()){
+			if(!FAT[iter->first].count(*it2)){
+				FAT[iter->first][*it2] = synch;
+			}
+			it2++;
+		}
+                iter++;
+        }
+}
 void outFAT()
- ~输出预测分析表
+{
+
+        cout << endl
+             << "Forecast analysis Table :" << endl;
+         for (int i = 0; i < (T.size() + 1) * 12 + 8; i++)
+        {
+                cout << "-";
+        }
+        cout << endl;    
+     	vector<string> y(T.begin(), T.end());
+        y.push_back("$");
+        auto ity = y.begin();
+        cout << "| " << setiosflags(ios::left) << setw(5) << "";
+        while (ity != y.end())
+        {
+                cout << "| " << setw(10) << *ity;
+                ity++;
+        }
+        cout << "|" << endl;
+        for (int i = 0; i < (T.size() + 1) * 12 + 8; i++)
+        {
+                cout << "-";
+        }
+        cout << endl;
+        auto itx = Nmodified.begin();
+        while (itx != Nmodified.end())
+        {
+                cout << "| " << setw(5) << itx->first;
+                ity = y.begin();
+                while (ity != y.end())
+                {
+                        if (FAT[itx->first].count(*ity))
+                        {
+				string stemp;
+				if(FAT[itx->first][*ity].begin()->compare("synch")){
+					stemp += itx->first;
+					stemp += "->";
+				}
+                                auto it1 = FAT[itx->first][*ity];
+                                auto it2 = it1.begin();
+                                while (it2 != it1.end())
+                                {
+                                        stemp += *it2;
+                                        it2++;
+                                }
+                                cout << "| " << setw(10) << stemp;
+                        }
+                        else
+                        {
+                                cout << "| " << setw(10) << "ERROR";
+                        }
+                        ity++;
+                }
+                itx++;
+                cout << "|" << endl;
+        }
+
+	for (int i = 0; i < (T.size() + 1) * 12 + 8; i++){
+      		 cout << "-";
+        }
+        cout << endl;
+        
+}
+//输入栈
+vector<string> inputstack;
+
 int getinputstack()
- ~input分析字符串。无需加`$`。格式不合法则循环重新输入，合法则继续执行
+{
+        //清空栈
+        inputstack.clear(); 
+	cout<<endl<<"Input Buffer: ";
+        //输入字符串
+        string input;
+	std::getline(std::cin,input);
+        //符号str
+        string str;
+        for (int i = 0; i < input.size(); i++)
+        {
+                char in = input[i];
+                str.push_back(in);
+		if (in >='A'&&in<='Z'){
+		     cout << str << "为无效符号,请重新输入" << endl;
+		     return 0;
+		}
+			
+		
+                //小写符号串，允许由a-z,0-9或下划线组成
+                if ((in >= 'a' && in <= 'z') || (in >= '0' && in <= '9') || in == '_')
+                {
+                        continue;
+                }
+
+
+                //单符号，如‘*’ 非终结符，如‘|’分界符`,以及空字符表示’？‘
+                else
+                {
+                        //如果只有单字符，str长度为1
+                        //此情况针对 小写符号串
+                        if (str.size() > 1)
+                        {
+                                str.pop_back(); //弹出单符号
+
+                                //若str不存在则报错，return
+                                if (!T.count(str))
+                                {
+                                        cout << str << "为无效符号,请重新输入" << endl;
+                                        return 0;
+                                }
+                                inputstack.push_back(str);
+                                str.clear();
+                                str.push_back(in); //收回单符号
+                        }
+			//如果不为空格，则检测后入栈
+			if (in !=' '){
+		        	if (!T.count(str)){
+                               		cout << str << "为无效符号,请重新输入" << endl;
+                                	return 0;
+                        	}
+                       		inputstack.push_back(str);
+			}
+                        str.clear();
+                }
+        }
+        if (str.size())
+        {
+                if (!T.count(str))
+                {
+                        cout << str << "为无效符号,请重新输入" << endl;
+                        return 0;
+                }
+                inputstack.push_back(str);
+                str.clear();
+        }
+        inputstack.push_back("$");
+        //输入栈逆转
+
+        reverse(inputstack.begin(), inputstack.end());
+        return 1;
+}
 void analysis()
- ~分析输入串，并逐步输出
+{
+        vector<string> astack; //分析栈
+        astack.push_back("$");
+        astack.push_back(Nmodified.begin()->first);
+	
+	//打印表头
+	
+	for(int i = 0;i < 59;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
+        cout << left << setw(20) <<"  analysis"<<"| ";
+	cout << left << setw(20) <<" input" <<"| ";
+	cout << left << setw(15) <<" output" <<endl;
+	for(int i = 0;i < 59;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
+        //满足分析栈或输入栈为空则结束
+        while (!(astack.empty() || inputstack.empty()))
+        {
+                //带输出串
+                string str;
+
+                //打印分析栈
+                auto it = astack.begin();
+                while (it != astack.end())
+                {
+                        str += *it;
+                        it++;
+                }
+                cout << left << setw(20) << str<<"| ";
+                str.clear();
+                //反向打印输入栈
+                auto it1 = inputstack.rbegin();
+                while (it1 != inputstack.rend())
+                {
+                        str += *it1;
+                        it1++;
+                }
+                cout << right << setw(20) << str<<"| ";
+                str.clear();
+
+                //如果栈顶相等，此时肯定两个栈顶为两个终结符或$
+                if (!(astack.end() - 1)->compare(*(inputstack.end() - 1)))
+                {
+                        astack.pop_back();
+                        inputstack.pop_back();
+                }
+                //否则当左侧栈顶为非终结符,且列表中存在时
+                else if (FAT.count(*astack.rbegin()) && FAT[*astack.rbegin()].count(*(inputstack.rbegin())))
+                {
+                        //如果为synch
+                        if (!FAT[*astack.rbegin()][*inputstack.rbegin()].begin()->compare("synch"))
+                        {
+        			str+="Error,[";
+				str+=*astack.rbegin();
+				str+=",";
+				str+=*inputstack.rbegin();
+				str+="]=synch,弹出分析栈顶";
+				str+=*astack.rbegin();
+	      			cout << left << setw(15) << str;
+				astack.pop_back();
+
+                        }
+                        //如果为表达式时
+                        else
+                        {
+                                //打印输出，即分析过程
+                                str += *(astack.end() - 1);
+                                str += "—>";
+                                it = FAT[*(astack.end() - 1)][*(inputstack.end() - 1)].begin();
+                                while (it != FAT[*(astack.end() - 1)][*(inputstack.end() - 1)].end())
+                                {
+                                        str += *it;
+                                        it++;
+                                }
+                                cout << left << setw(15) << str;
+                                str.clear();
+
+                                string needpop(*astack.rbegin());
+                                astack.pop_back();
+                                it1 = FAT[needpop][*inputstack.rbegin()].rbegin();
+
+                                while (it1 != (FAT[needpop][*inputstack.rbegin()]).rend())
+                                {
+                                        if(it1->compare("?"))
+                                                astack.push_back(*it1);
+                                        it1++;
+                                }
+                        }
+                }
+                //如果左侧栈顶为非终结符，表中不存在，则按ERROR处理
+                else if (FAT.count(*astack.rbegin()) && !FAT[*astack.rbegin()].count(*(inputstack.rbegin())))
+                {
+			str+="Error,[";
+			str+=*astack.rbegin();
+			str+=",";
+			str+=*inputstack.rbegin();
+			str+="]=空白，弹出输入栈顶";
+			str+=*inputstack.rbegin();
+                        cout << left << setw(15) << str;
+			inputstack.pop_back();
+
+                }
+                //即，如果左侧栈顶为终结符或$，但是与右侧栈顶不相同,则将左侧栈顶弹出。
+                else
+                {
+			str+="Error,分析栈顶";
+			str+=*astack.rbegin();
+			str+="与输入栈顶";
+			str+=*inputstack.rbegin();
+			str+="不匹配，故弹出分析栈顶";
+                        cout << left << setw(15) << str;
+			astack.pop_back();
+                }
+                cout<<endl;
+        }
+
+	for(int i = 0;i < 59;i++){
+		cout<<"-";
+	}	
+	cout<<endl;
+        
+	if(inputstack.empty()&&astack.empty()){
+		cout<<"分析成功!"<<endl;
+	}
+	else{
+		cout<<"分析失败"<<endl;
+	}
+
+}
 int main()
- ~主函数main
+{
+	cout<<"确认语法文件Grammar.txt编辑完成，按任意键继续"<<endl;
+	getchar();
+        read();
+	cout<<"词法分析成功！开始消除左递归"<<endl;
+        elimimateleftrecursion();
+	cout<<"消除左递归后，文法如下:"<<endl;
+        outProds(Nmodified);
+        first();
+        follow();
+	cout<<endl<<"求得各非终结符的First集Follow集:"<<endl;
+        outset();
+        //outT();
+        makeFAT();
+        outFAT();
+	cout<<"请输入待分析字符串"<<endl;
+        while (!getinputstack());
+	cout<<"分析过程:"<<endl;
+        analysis();
+}
 
-
-# 程序及执行
-
-## 文件结构
-
-## 给定文法测试
-
-## 推广测试
-
-## 代码 
+```
 
 # 总结
-
-~ Figure { #fig-butterfly; caption:"A Monarch butterfly (use the `.wide` class for wide figure)."; page-align:top}
-![butterfly]
-~
-
-[butterfly]: images/butterfly.png "butterfly"  { width:4em }
-
-Our contributions are:
-
-* A figure of a _butterfly_;
-* Some **mathematics**;
-* And some source code;
-* And references to Tex books [@Knuth:TeX;@Lamport:LaTeX;@Goo93;@Fberg04] and others [@Grandstrand].
-
-
-
-# Content
-
-A definition of $e$ is shown in Equation [#euler]:
-
-~ Equation { #euler }
-e = \lim_{n\to\infty} \left( 1 + \frac{1}{n} \right)^n
-~
-
-Let's program some JavaScript:
-``` javascript
-function hello() {
-  return "hello world!"
-}
-```
-
-## There and back again
-
-It had a perfectly round door like a porthole, painted green, with a
-shiny yellow brass knob in the exact middle. The door opened on to a
-tube-shaped hall like a tunnel: a very comfortable tunnel without smoke,
-with paneled walls, and floors tiled and carpeted, provided with
-polished chairs, and lots and lots of pegs for hats and coats; the hobbit
-was fond of visitors. The tunnel wound on and on, going fairly but not
-quite straight into the side of the hill -- The Hill, as all the people for
-many miles round called it -- and many little round doors opened out of it,
-first on one side and then on another. No going upstairs for the hobbit:
-bedrooms, bathrooms, cellars, pantries (lots of these), wardrobes (he had
-whole rooms devoted to clothes), kitchens, dining-rooms, all were on the
-same floor, and indeed on the same passage. The best rooms were all on
-the left-hand side (going in), for these were the only ones to have
-windows, deep-set round windows looking over his garden, and meadows
-beyond, sloping down to the river.
-
-
-~ Lemma 
-There he lay, a vast red-golden dragon, fast asleep; thrumming came from
-his jaws and nostrils, and wisps of smoke, but his fires were low in
-slumber
-~
-
-~ Proof 
-Roads go ever ever on.
-~
-
-~ Todo 
-Finish the proof
-~
-
-## The dinner
-
-And suddenly first one and then another began to sing as they played,
-deep-throated singing of the dwarves in the deep places of their ancient
-homes; and this is like a fragment of their song, if it can be like their
-song without their music. \[...\] As they sang the hobbit felt the love
-of beautiful things made by hands and by cunning and by magic moving
-through him, a fierce and jealous love, the desire of the hearts of
-dwarves. Then something Tookish woke up inside him, and he wished to go
-and see the great mountains, and hear the pine-trees and the waterfalls,
-and explore the caves, and wear a sword instead of a walking-stick. He
-looked out of the window. The stars were out in a dark sky above the
-trees. He thought of the jewels of the dwarves shining in dark caverns.
-Suddenly in the wood beyond The Water a flame leapt up -- probably
-somebody lighting a wood-fire -- and he thought of plundering dragons
-settling on his quiet Hill and kindling it all to flames. He shuddered;
-and very quickly he was plain Mr. Baggins of Bag-End, Under-Hill, again.
-He got up trembling.
-
-## A turn of events
-
-"Halt!" cried Gandalf, who appeared suddenly, and stood alone, with arms
-uplifted, between the advancing dwarves and the ranks awaiting them.
-"Halt!" he called in a voice like thunder, and his staff blazed forth
-with a flash like the lightning. "Dread has come upon you all! Alas! it
-has come more swiftly than I guessed."
-
-    for i:=maxint to 0 do
-    begin 
-        j:=square(root(i));
-    end;
-
-
-## A description
-
-
-~ Lemma { caption:"Another lemma" }
-There is little or no magic about them, except the ordinary everyday sort
-which helps them to disappear quietly and quickly when large stupid folk
-like you and me come blundering along, making a noise like elephants
-which they can hear a mile off.
-~
-
-[BIB]
-
-&pagebreak;
-
-# An appendix { @h1:"A" }
+分三个方面
+## 编译原理
+1. 经过亲自动手实践，加深了我对编译原理尤其是LL(1)文法的理解。
+2. 通过死循环，真正的体会理解了消除左递归的重要性
+3. 手动见证了语法自动分析的神奇之处。
+## 代码
+1. 熟练掌握了C++的vector,set,map等数据结构
+2. 学习并运用迭代器，充分解耦，提高了编写效率与程序性能
+3. 进一步掌握了c++的格式化输出，使输出美观
+4. 充分考虑到各种情况，提高了程序的鲁棒性
+5. 进行了一定程度的优化，提高了程序的执行效率
+## 工程
+1. 第一次用vim进行ｃ++开发。第一次接触makefile。在vim的配置上花费了许多时间，但是收货颇丰，获得了许多的通用技能。(前期使用vscode感觉不够硬核于是换的vim)
+2. 第一次使用命令框gdb进行调试。 
+3. [Github](https://github.com/luyuhao98/LL1)
+4. Madoko
 
 ~ End MainPanel
