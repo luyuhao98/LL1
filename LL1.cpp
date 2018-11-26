@@ -698,14 +698,14 @@ void analysis()
 	
 	//打印表头
 	
-	for(int i = 0;i < 54;i++){
+	for(int i = 0;i < 59;i++){
 		cout<<"-";
 	}	
 	cout<<endl;
-        cout << left << setw(15) <<"  analysis"<<"| ";
+        cout << left << setw(20) <<"  analysis"<<"| ";
 	cout << left << setw(20) <<" input" <<"| ";
 	cout << left << setw(15) <<" output" <<endl;
-	for(int i = 0;i < 54;i++){
+	for(int i = 0;i < 59;i++){
 		cout<<"-";
 	}	
 	cout<<endl;
@@ -722,7 +722,7 @@ void analysis()
                         str += *it;
                         it++;
                 }
-                cout << left << setw(15) << str<<"| ";
+                cout << left << setw(20) << str<<"| ";
                 str.clear();
                 //反向打印输入栈
                 auto it1 = inputstack.rbegin();
@@ -810,7 +810,7 @@ void analysis()
                 cout<<endl;
         }
 
-	for(int i = 0;i < 54;i++){
+	for(int i = 0;i < 59;i++){
 		cout<<"-";
 	}	
 	cout<<endl;
